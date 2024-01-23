@@ -1,0 +1,18 @@
+{
+  "name": "sanberbookbackend",
+  "version": "1.0.0",
+  "description": "Backend for Book Collection Management (CRUD). It using expressJs as a framework and firebase for authentication and data storing.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon index"
+  },
+  "author": "dwisoca",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "firebase-admin": "^11.5.0",
+    "nodemon": "^3.0.3"
+  }
+}
