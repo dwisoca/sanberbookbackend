@@ -1,6 +1,6 @@
 // Firebase
-var admin = require("firebase-admin");
-var serviceAccount = require("./serviceAccountKey.json");
+const admin = require("firebase-admin");
+const serviceAccount = require("./serviceAccountKey.json");
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
 });
@@ -10,7 +10,9 @@ const auth = admin.auth()
 // Express
 const express = require('express')
 const app = express()
+const cors = require('cors')
 const port = 5000
+app.use(cors())
 app.use(express.urlencoded({ extended: true }))
 
 // Express Middleware
@@ -20,6 +22,7 @@ const isAuthenticated = async (req, res, next) => {
         const decodedToken = await auth.verifyIdToken(token)
         next();
     } catch (error) {
+        console.log(error)
         return res.status(401).json({ error: 'Unauthorized' });
     }
   };
