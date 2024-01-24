@@ -1,6 +1,7 @@
 // Firebase
 const admin = require("firebase-admin");
 const serviceAccount = require("./serviceAccountKey.json");
+const { getFirestore, Timestamp, FieldValue } = require('firebase-admin/firestore');
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
 });
@@ -18,7 +19,8 @@ app.use(express.urlencoded({ extended: true }))
 // Express Middleware
 const isAuthenticated = async (req, res, next) => {
     try {
-        const { token } = req.body;
+        const { token, categoryName } = req.body;
+        console.log(categoryName)
         const decodedToken = await auth.verifyIdToken(token)
         next();
     } catch (error) {
@@ -39,7 +41,9 @@ app.get('/categories/:id/books', async (req, res) => {
 
 // POST /categories
 app.post('/categories', isAuthenticated, async (req, res) => {
-    res.send('POST REQ Succeed')
+  const { token, categoryName } = req.body;
+  await addCategory(categoryName)
+  res.send('Sukses menambah kategori: ' + categoryName)
 });
 
 // PATCH /categories/:id
@@ -57,3 +61,20 @@ app.delete('/categories/:id', isAuthenticated, async (req, res) => {
 app.listen(port, () => {
     console.log(`Server runnig on port ${port}`)
 })
+
+async function addCategory(categoryName){
+  console.log(categoryName)
+  // Baca data untuk membuat nomor urut
+  const collectionRef = dbFirestore.collection('category');
+  const snapshot = await collectionRef.count().get();
+  const categoryID = snapshot.data().count + 1
+  console.log(categoryID);
+
+  const data = {
+    id: categoryID,
+    name: categoryName,
+    created_at: Timestamp,
+    updated_at: Timestamp,
+  };
+  const res = await dbFirestore.collection('category').doc(categoryID).set(data);
+}
