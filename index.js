@@ -16,6 +16,10 @@ const port = 5000
 app.use(cors())
 app.use(express.urlencoded({ extended: true }))
 
+// UUID
+const UUID = require('uuid-int');
+const idGenerator = UUID(1);
+
 // Express Middleware
 const isAuthenticated = async (req, res, next) => {
     try {
@@ -32,17 +36,12 @@ const isAuthenticated = async (req, res, next) => {
 app.get('/categories', async (req, res) => {
   const collectionRef = dbFirestore.collection('category')
   const snapshot = await collectionRef.get();
-  let result = []
+  let resultCategory = []
   snapshot.forEach(doc => {
-    result.push(doc.data())
+    resultCategory.push(doc.data())
   });
   // console.log(result)
-  res.send(result)
-});
-
-// GET /categories/:id/books
-app.get('/categories/:id/books', async (req, res) => {
-  // ...
+  res.send(resultCategory)
 });
 
 // POST /categories
@@ -69,22 +68,60 @@ app.delete('/categories/:id', isAuthenticated, async (req, res) => {
   res.send('Sukses delete kategori ID: ' + categoryID)
 });
 
+// GET /categories/:id/books
+app.get('/categories/:id/books', async (req, res) => {
+  try {
+    const categoryId = req.params.id;
+    console.log(categoryId)
+    // Check if the category exists
+    const categoryDoc = await dbFirestore.collection('category').doc(categoryId).get();
+    if (!categoryDoc.exists) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
 
+    // Fetch books associated with the category
+    const booksSnapshot = await dbFirestore.collection('book').where('category_id', '==', parseInt(categoryId)).get();
+    let resultBook = [];
+
+    booksSnapshot.forEach((bookDoc) => {
+      console.log(bookDoc.data())
+      resultBook.push(bookDoc.data());
+    });
+
+    res.send(resultBook);
+  } catch (error) {
+    console.error('Error fetching books by category', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// GET /books
+app.get('/books', async (req, res) => {
+  const collectionRef = dbFirestore.collection('book')
+  const snapshot = await collectionRef.get();
+  let resultBook = []
+  snapshot.forEach(doc => {
+    resultBook.push(doc.data())
+  });
+  // console.log(result)
+  res.send(resultBook)
+});
+
+// POST /books
+app.post('/books', isAuthenticated, async (req, res) => {
+  const { bookData } = req.body;
+  await addBook(bookData)
+  res.send('Sukses menambah buku: ' + bookData.title)
+});
 
 app.listen(port, () => {
     console.log(`Server runnig on port ${port}`)
 })
 
 async function addCategory(categoryName){
-  console.log(categoryName)
-  // Count collection for ID's
-  const collectionRef = dbFirestore.collection('category');
-  const snapshot = await collectionRef.count().get();
-  const categoryID = (snapshot.data().count + 1).toString()
-  // console.log(categoryID);
-
+  const categoryID = idGenerator.uuid()
   // Write to db
-  const targetRef = dbFirestore.collection('category').doc(categoryID);
+  const targetRef = dbFirestore.collection('category').doc(categoryID.toString());
   const res = await targetRef.set({
     id: categoryID,
     name: categoryName,
@@ -111,4 +148,36 @@ async function deleteCategory(categoryID){
 
   const res = await dbFirestore.collection('category').doc(categoryID.toString()).delete();
   
+}
+async function addBook(bookData){
+  const bookID = idGenerator.uuid()
+  const data = {
+    // user input
+    title: bookData.title,
+    description: bookData.description,
+    image: bookData.image,
+    release_year: bookData.releaseYear,
+    price: bookData.price,
+    total_page: bookData.totalPage,
+    category_id: bookData.categoryID,
+    // system input
+    id: bookID,
+    thickness: getThickness(bookData.totalPage),
+    created_at: FieldValue.serverTimestamp(),
+    updated_at: FieldValue.serverTimestamp(),
+  }
+  // Write to db
+  const targetRef = dbFirestore.collection('book').doc(bookID.toString());
+  const res = await targetRef.set(data);
+  
+}
+
+function getThickness(totalPage){
+  if (totalPage <= 100) {
+    return "tipis";
+  } else if (totalPage >= 101 && totalPage <= 200) {
+    return "sedang";
+  } else {
+    return "tebal";
+  }
 }
