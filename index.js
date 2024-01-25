@@ -97,12 +97,50 @@ app.get('/categories/:id/books', async (req, res) => {
 
 // GET /books
 app.get('/books', async (req, res) => {
-  const collectionRef = dbFirestore.collection('book')
-  const snapshot = await collectionRef.get();
+  const { title, minYear, maxYear, minPage, maxPage, sortByTitle } = req.query;
+  console.log(req.query)
+  let bookRef = dbFirestore.collection('book')
+
+  if (minYear){
+    bookRef = dbFirestore.collection('book').where('release_year', '>=', parseInt(minYear));
+  }
+  if (maxYear){
+    bookRef = dbFirestore.collection('book').where('release_year', '<=', parseInt(maxYear));
+  }
+  if (minYear && maxYear){
+    bookRef = dbFirestore.collection('book')
+    .where('release_year', '>=', parseInt(minYear))
+    .where('release_year', '<=', parseInt(maxYear))
+  }
+  if (minPage){
+    bookRef = dbFirestore.collection('book').where('total_page', '>=', parseInt(minPage));
+  }
+  if (maxPage){
+    bookRef = dbFirestore.collection('book').where('total_page', '<=', parseInt(maxPage));
+  }
+  if (minPage && maxPage){
+    bookRef = dbFirestore.collection('book')
+    .where('total_page', '>=', parseInt(minPage))
+    .where('total_page', '<=', parseInt(maxPage))
+  }
+
+  const snapshot = await bookRef.get();
   let resultBook = []
   snapshot.forEach(doc => {
-    resultBook.push(doc.data())
+    const item = doc.data()
+    if (title){
+      if(item.title.toLowerCase().includes(title)){
+        resultBook.push(item)
+      }
+    } else{
+      resultBook.push(item)
+    }
   });
+
+  if (sortByTitle) {
+    const sortOrder = sortByTitle.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    resultBook.sort((a, b) => (a.title > b.title ? 1 : -1) * (sortOrder === 'desc' ? -1 : 1));
+  }
   // console.log(result)
   res.send(resultBook)
 });
