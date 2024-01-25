@@ -79,16 +79,21 @@ app.get('/categories/:id/books', async (req, res) => {
       return res.status(404).json({ error: 'Category not found' });
     }
 
-    // Fetch books associated with the category
-    const booksSnapshot = await dbFirestore.collection('book').where('category_id', '==', parseInt(categoryId)).get();
-    let resultBook = [];
+    if (Object.keys(req.query).length === 0){
+  
+      // Fetch books associated with the category
+      const booksSnapshot = await dbFirestore.collection('book').where('category_id', '==', parseInt(categoryId)).get();
+      let resultBook = [];
+  
+      booksSnapshot.forEach((bookDoc) => {
+        console.log(bookDoc.data())
+        resultBook.push(bookDoc.data());
+      });
+  
+      res.send(resultBook);
+    } else{
 
-    booksSnapshot.forEach((bookDoc) => {
-      console.log(bookDoc.data())
-      resultBook.push(bookDoc.data());
-    });
-
-    res.send(resultBook);
+    }
   } catch (error) {
     console.error('Error fetching books by category', error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -97,90 +102,11 @@ app.get('/categories/:id/books', async (req, res) => {
 
 // GET /books
 app.get('/books', async (req, res) => {
-  console.log(req.query)
-
   if (Object.keys(req.query).length === 0){
-    let bookRef = dbFirestore.collection('book')
-    const snapshot = await bookRef.get();
-    let resultBook = []
-    snapshot.forEach(doc => {
-      const item = doc.data()
-      resultBook.push(item)
-    });
-    res.send(resultBook)
-    return
+    const resultBook = await getFullBook()
+    return res.send(resultBook)
   } else {
-    const { title, minYear, maxYear, minPage, maxPage, sortByTitle } = req.query;
-    let minYearBooks = [];
-    let maxYearBooks = [];
-    let minPageBooks = [];
-    let maxPageBooks = [];
-    if (minYear){
-      const bookMinYearRef = dbFirestore.collection('book').where('release_year', '>=', parseInt(minYear));
-      const minYearSnapshot = await bookMinYearRef.get();
-      minYearBooks = minYearSnapshot.docs.map(doc => doc.data());
-    }
-    if (maxYear){
-      const bookMaxYearRef = dbFirestore.collection('book').where('release_year', '<=', parseInt(maxYear));
-      const maxYearSnapshot = await bookMaxYearRef.get();
-      maxYearBooks = maxYearSnapshot.docs.map(doc => doc.data());
-    }
-    if (minPage){
-      const bookMinPageRef = dbFirestore.collection('book').where('total_page', '>=', parseInt(minPage));
-      const minPageSnapshot = await bookMinPageRef.get();
-      minPageBooks = minPageSnapshot.docs.map(doc => doc.data());
-    }
-    if (maxPage){
-      const bookMaxPageRef = dbFirestore.collection('book').where('total_page', '<=', parseInt(maxPage));
-      const maxPageSnapshot = await bookMaxPageRef.get();
-      maxPageBooks = maxPageSnapshot.docs.map(doc => doc.data());
-    }
-    function countNonEmptySets(...sets) {
-      return sets.filter(set => set.length > 0).length;
-    }
-    const nonEmptySetsCount = countNonEmptySets(minYearBooks, maxYearBooks, minPageBooks, maxPageBooks);
-    // Combine all book sets into one array
-    const allBooks = [...minYearBooks, ...maxYearBooks, ...minPageBooks, ...maxPageBooks];
-
-    // Count occurrences of each item
-    const bookFrequency = {};
-    allBooks.forEach(book => {
-      const bookId = book.id;
-      bookFrequency[bookId] = (bookFrequency[bookId] || 0) + 1;
-    });
-
-    // Menggunakan fungsi eliminateDuplicates untuk menghapus item yang kembar
-    const intersectedBooks = allBooks.filter(book => bookFrequency[book.id] === nonEmptySetsCount);
-    const eliminateDuplicates = (array, keyFn) => {
-      const seen = new Set();
-      return array.filter(item => {
-        const key = keyFn(item);
-        if (!seen.has(key)) {
-          seen.add(key);
-          return true;
-        }
-        return false;
-      });
-    };
-    const getBookId = book => book.id;
-    const uniqueBooks = eliminateDuplicates(intersectedBooks, getBookId);
-  
-    let resultBook = []
-    uniqueBooks.forEach(doc => {
-      const item = doc
-      if (title){
-        if(item.title.toLowerCase().includes(title)){
-          resultBook.push(item)
-        }
-      } else{
-        resultBook.push(item)
-      }
-    });
-  
-    if (sortByTitle) {
-      const sortOrder = sortByTitle.toLowerCase() === 'desc' ? 'desc' : 'asc';
-      resultBook.sort((a, b) => (a.title > b.title ? 1 : -1) * (sortOrder === 'desc' ? -1 : 1));
-    }
+    const resultBook = await filterBook(req.query)
     res.send(resultBook)
 
   }
@@ -294,6 +220,108 @@ async function deleteBook(bookID){
   console.log('Delete category ID:', bookID)
 
   const res = await dbFirestore.collection('book').doc(bookID.toString()).delete();
+}
+
+async function getFullBook(){
+  let bookRef = dbFirestore.collection('book')
+    const snapshot = await bookRef.get();
+    let resultBook = []
+    snapshot.forEach(doc => {
+      const item = doc.data()
+      resultBook.push(item)
+    });
+    return resultBook
+}
+
+async function filterBook(query){
+  const { title, minYear, maxYear, minPage, maxPage, sortByTitle } = query;
+    let minYearBooks = [];
+    let maxYearBooks = [];
+    let minPageBooks = [];
+    let maxPageBooks = [];
+    if (minYear){
+      const bookMinYearRef = dbFirestore.collection('book').where('release_year', '>=', parseInt(minYear));
+      const minYearSnapshot = await bookMinYearRef.get();
+      minYearBooks = minYearSnapshot.docs.map(doc => doc.data());
+    }
+    if (maxYear){
+      const bookMaxYearRef = dbFirestore.collection('book').where('release_year', '<=', parseInt(maxYear));
+      const maxYearSnapshot = await bookMaxYearRef.get();
+      maxYearBooks = maxYearSnapshot.docs.map(doc => doc.data());
+    }
+    if (minPage){
+      const bookMinPageRef = dbFirestore.collection('book').where('total_page', '>=', parseInt(minPage));
+      const minPageSnapshot = await bookMinPageRef.get();
+      minPageBooks = minPageSnapshot.docs.map(doc => doc.data());
+    }
+    if (maxPage){
+      const bookMaxPageRef = dbFirestore.collection('book').where('total_page', '<=', parseInt(maxPage));
+      const maxPageSnapshot = await bookMaxPageRef.get();
+      maxPageBooks = maxPageSnapshot.docs.map(doc => doc.data());
+    }
+    function countNonEmptySets(...sets) {
+      return sets.filter(set => set.length > 0).length;
+    }
+    const nonEmptySetsCount = countNonEmptySets(minYearBooks, maxYearBooks, minPageBooks, maxPageBooks);
+    if (title && (nonEmptySetsCount < 1)){
+      let resultBook2 = []
+      const resultBook = await getFullBook()
+      resultBook.forEach(doc => {
+        const item = doc
+        if (title){
+          if(item.title.toLowerCase().includes(title)){
+            resultBook2.push(item)
+          }
+        } else{
+          resultBook2.push(item)
+        }
+      });
+      return resultBook2
+    }
+    
+    // Combine all book sets into one array
+    const allBooks = [...minYearBooks, ...maxYearBooks, ...minPageBooks, ...maxPageBooks];
+
+    // Count occurrences of each item
+    const bookFrequency = {};
+    allBooks.forEach(book => {
+      const bookId = book.id;
+      bookFrequency[bookId] = (bookFrequency[bookId] || 0) + 1;
+    });
+
+    // Menggunakan fungsi eliminateDuplicates untuk menghapus item yang kembar
+    const intersectedBooks = allBooks.filter(book => bookFrequency[book.id] === nonEmptySetsCount);
+    const eliminateDuplicates = (array, keyFn) => {
+      const seen = new Set();
+      return array.filter(item => {
+        const key = keyFn(item);
+        if (!seen.has(key)) {
+          seen.add(key);
+          return true;
+        }
+        return false;
+      });
+    };
+    const getBookId = book => book.id;
+    const uniqueBooks = eliminateDuplicates(intersectedBooks, getBookId);
+  
+    let resultBook = []
+    uniqueBooks.forEach(doc => {
+      const item = doc
+      if (title){
+        if(item.title.toLowerCase().includes(title)){
+          resultBook.push(item)
+        }
+      } else{
+        resultBook.push(item)
+      }
+    });
+  
+    if (sortByTitle) {
+      const sortOrder = sortByTitle.toLowerCase() === 'desc' ? 'desc' : 'asc';
+      resultBook.sort((a, b) => (a.title > b.title ? 1 : -1) * (sortOrder === 'desc' ? -1 : 1));
+    }
+    return resultBook
 }
 
 function getThickness(totalPage){
