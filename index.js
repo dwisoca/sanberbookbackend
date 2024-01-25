@@ -110,8 +110,25 @@ app.get('/books', async (req, res) => {
 // POST /books
 app.post('/books', isAuthenticated, async (req, res) => {
   const { bookData } = req.body;
-  await addBook(bookData)
-  res.send('Sukses menambah buku: ' + bookData.title)
+  const data = JSON.parse(bookData)
+  await addBook(data)
+  res.send('Sukses menambah buku: ' + data.title)
+});
+
+// PATCH /categories/:id
+app.patch('/books/:id', isAuthenticated, async (req, res) => {
+  const { bookData } = req.body;
+  const data = JSON.parse(bookData)
+  await updateBook(data)
+  res.send('Sukses update buku: ' + data.title)
+});
+
+// DELETE /books/:id
+app.delete('/books/:id', isAuthenticated, async (req, res) => {
+  const bookID = req.params.id;
+
+  await deleteBook(bookID)
+  res.send('Sukses delete kategori ID: ' + bookID)
 });
 
 app.listen(port, () => {
@@ -147,8 +164,8 @@ async function deleteCategory(categoryID){
   console.log('Delete category ID:', categoryID)
 
   const res = await dbFirestore.collection('category').doc(categoryID.toString()).delete();
-  
 }
+
 async function addBook(bookData){
   const bookID = idGenerator.uuid()
   const data = {
@@ -156,13 +173,13 @@ async function addBook(bookData){
     title: bookData.title,
     description: bookData.description,
     image: bookData.image,
-    release_year: bookData.releaseYear,
+    release_year: bookData.release_year,
     price: bookData.price,
-    total_page: bookData.totalPage,
-    category_id: bookData.categoryID,
+    total_page: bookData.total_page,
+    category_id: bookData.category_id,
     // system input
     id: bookID,
-    thickness: getThickness(bookData.totalPage),
+    thickness: getThickness(bookData.total_page),
     created_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
   }
@@ -170,6 +187,33 @@ async function addBook(bookData){
   const targetRef = dbFirestore.collection('book').doc(bookID.toString());
   const res = await targetRef.set(data);
   
+}
+
+async function updateBook(bookData){
+  const data = {
+    // user input
+    title: bookData.title,
+    description: bookData.description,
+    image: bookData.image,
+    release_year: bookData.release_year,
+    price: bookData.price,
+    total_page: bookData.total_page,
+    category_id: bookData.category_id,
+    // system input
+    id: bookData.id,
+    thickness: getThickness(bookData.total_page),
+    updated_at: FieldValue.serverTimestamp(),
+  }
+  // Write to db
+  const targetRef = dbFirestore.collection('book').doc(bookData.id.toString());
+  const res = await targetRef.update(data);
+  
+}
+
+async function deleteBook(bookID){
+  console.log('Delete category ID:', bookID)
+
+  const res = await dbFirestore.collection('book').doc(bookID.toString()).delete();
 }
 
 function getThickness(totalPage){
